@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GA4 Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #111; min-height: 100vh; }
+  .app { max-width: 900px; margin: 0 auto; padding: 2rem 1rem; }
+  .auth-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; gap: 1.5rem; text-align: center; }
+  .ga-logo { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 600; }
+  .sign-in-btn { display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 12px 24px; font-size: 15px; font-weight: 500; cursor: pointer; transition: background 0.15s; }
+  .sign-in-btn:hover { background: #f9f9f9; }
+  .scope-notice { font-size: 13px; color: #888; max-width: 360px; line-height: 1.6; }
+  .dashboard { display: none; }
+  .top-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid #e5e5e5; }
+  .user-pill { display: flex; align-items: center; gap: 8px; background: #f0f0f0; border-radius: 20px; padding: 4px 14px 4px 4px; font-size: 14px; }
+  .avatar { width: 28px; height: 28px; border-radius: 50%; background: #1a6bbf; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: #fff; }
+  .sign-out-btn { font-size: 13px; color: #888; background: none; border: none; cursor: pointer; padding: 0 0 0 8px; }
+  .sign-out-btn:hover { color: #333; }
+  .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .controls label { font-size: 13px; color: #666; }
+  select { font-size: 13px; padding: 6px 10px; border: 1px solid #ddd; border-radius: 6px; background: #fff; cursor: pointer; }
+  .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 1.5rem; }
+  .metric-card { background: #fff; border-radius: 10px; padding: 1rem 1.25rem; border: 1px solid #e8e8e8; }
+  .metric-label { font-size: 12px; color: #888; margin-bottom: 6px; }
+  .metric-value { font-size: 26px; font-weight: 600; color: #111; }
+  .chart-card { background: #fff; border-radius: 10px; padding: 1.25rem; border: 1px solid #e8e8e8; margin-bottom: 1rem; }
+  .chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+  .chart-title { font-size: 14px; font-weight: 500; color: #555; }
+  .insight-btn { font-size: 13px; color: #1a6bbf; background: #f0f6ff; border: 1px solid #cce0ff; border-radius: 6px; padding: 5px 12px; cursor: pointer; }
+  .insight-btn:hover { background: #ddeeff; }
+  .legend-row { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 10px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #666; }
+  .legend-swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+  .two-col { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+  .gender-bar-label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
+  .gender-bar-track { height: 8px; background: #f0f0f0; border-radius: 4px; overflow: hidden; margin-bottom: 10px; }
+  .gender-bar-fill { height: 100%; border-radius: 4px; }
+  .error-banner { background: #fff0f0; border: 1px solid #fcc; border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #c00; margin-bottom: 1rem; }
+  .loading { display: flex; align-items: center; justify-content: center; height: 180px; color: #888; font-size: 14px; gap: 8px; }
+  @media (prefers-color-scheme: dark) {
+    body { background: #1a1a1a; color: #eee; }
+    .metric-card, .chart-card { background: #242424; border-color: #333; }
+    .metric-value { color: #eee; }
+    .sign-in-btn { background: #242424; border-color: #444; color: #eee; }
+    .sign-in-btn:hover { background: #2e2e2e; }
+    select { background: #242424; border-color: #444; color: #eee; }
+    .user-pill { background: #2e2e2e; }
+    .legend-item, .chart-title, .controls label { color: #aaa; }
+    .gender-bar-track { background: #333; }
+    .insight-btn { background: #1a2a3a; border-color: #2a4a6a; color: #6ab0ff; }
+    .insight-btn:hover { background: #1e3040; }
+    .top-bar { border-color: #333; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="auth-screen" id="auth-screen">
+    <div class="ga-logo">
+      <svg width="34" height="34" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="6" fill="#E37400"/><rect x="8" y="18" width="5" height="8" rx="1" fill="white" opacity="0.9"/><rect x="15" y="12" width="5" height="14" rx="1" fill="white"/><rect x="22" y="6" width="5" height="20" rx="1" fill="white" opacity="0.75"/></svg>
+      GA4 Dashboard
+    </div>
+    <p style="color:#888;font-size:15px;">Sign in to explore your conversions and audience data.</p>
+    <button class="sign-in-btn" onclick="handleSignIn()">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/><path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z" fill="#EA4335"/></svg>
+      Sign in with Google
+    </button>
+    <p class="scope-notice">Read-only access to your Google Analytics data. Your credentials are never stored or sent anywhere except Google's servers.</p>
+  </div>
+
+  <div class="dashboard" id="dashboard">
+    <div class="top-bar">
+      <div class="user-pill">
+        <div class="avatar" id="user-avatar">–</div>
+        <span id="user-name" style="color:#666;font-size:13px;">–</span>
+        <button class="sign-out-btn" onclick="handleSignOut()">Sign out</button>
+      </div>
+      <div class="controls">
+        <label>Property</label>
+        <select id="property-select" onchange="loadData()"></select>
+        <select id="date-range" onchange="loadData()">
+          <option value="7">Last 7 days</option>
+          <option value="28" selected>Last 28 days</option>
+          <option value="90">Last 90 days</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="error-area"></div>
+    <div id="data-area"></div>
+  </div>
+</div>
+
+<script>
+const CLIENT_ID = '42552772393-8lmsdjuel6tgb1qkd4qbcbk7vk4t1q88.apps.googleusercontent.com';
+const SCOPES = 'https://www.googleapis.com/auth/analytics.readonly';
+let tokenClient, accessToken, charts = {};
+
+function initGsi() {
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: SCOPES,
+    callback: async (resp) => {
+      if (resp.error) { showError('Auth error: ' + resp.error); return; }
+      accessToken = resp.access_token;
+      document.getElementById('auth-screen').style.display = 'none';
+      document.getElementById('dashboard').style.display = 'block';
+      await loadProperties();
+    }
+  });
+}
+
+function handleSignIn() { tokenClient.requestAccessToken(); }
+
+function handleSignOut() {
+  if (accessToken) google.accounts.oauth2.revoke(accessToken, () => {});
+  accessToken = null;
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('data-area').innerHTML = '';
+  Object.values(charts).forEach(c => c.destroy());
+  charts = {};
+}
+
+async function gaFetch(url, opts = {}) {
+  const r = await fetch(url, {
+    ...opts,
+    headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json', ...(opts.headers || {}) }
+  });
+  if (!r.ok) { const e = await r.json(); throw new Error(e.error?.message || r.statusText); }
+  return r.json();
+}
+
+async function loadProperties() {
+  try {
+    const [data, profile] = await Promise.all([
+      gaFetch('https://analyticsadmin.googleapis.com/v1beta/properties?pageSize=50'),
+      gaFetch('https://www.googleapis.com/oauth2/v3/userinfo')
+    ]);
+    const sel = document.getElementById('property-select');
+    sel.innerHTML = '';
+    (data.properties || []).forEach(p => {
+      const o = document.createElement('option');
+      o.value = p.name.replace('properties/', '');
+      o.textContent = p.displayName;
+      sel.appendChild(o);
+    });
+    if (!data.properties?.length) { showError('No GA4 properties found on this account.'); return; }
+    const initials = (profile.name || 'U').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+    document.getElementById('user-avatar').textContent = initials;
+    document.getElementById('user-name').textContent = profile.name || profile.email || '';
+    loadData();
+  } catch (e) { showError(e.message); }
+}
+
+async function loadData() {
+  const propId = document.getElementById('property-select').value;
+  const days = document.getElementById('date-range').value;
+  if (!propId) return;
+  document.getElementById('data-area').innerHTML = '<div class="loading">Loading your data…</div>';
+  clearError();
+  Object.values(charts).forEach(c => c.destroy()); charts = {};
+  const url = `https://analyticsdata.googleapis.com/v1beta/properties/${propId}:runReport`;
+  const startDate = days + 'daysAgo';
+  try {
+    const [convData, audData, ageData, genderData] = await Promise.all([
+      gaFetch(url, { method: 'POST', body: JSON.stringify({ dateRanges: [{ startDate, endDate: 'today' }], metrics: [{ name: 'conversions' }, { name: 'totalRevenue' }, { name: 'sessions' }, { name: 'bounceRate' }], dimensions: [{ name: 'date' }], orderBys: [{ dimension: { dimensionName: 'date' } }] }) }),
+      gaFetch(url, { method: 'POST', body: JSON.stringify({ dateRanges: [{ startDate, endDate: 'today' }], metrics: [{ name: 'activeUsers' }], dimensions: [{ name: 'country' }], orderBys: [{ metric: { metricName: 'activeUsers' }, desc: true }], limit: 8 }) }),
+      gaFetch(url, { method: 'POST', body: JSON.stringify({ dateRanges: [{ startDate, endDate: 'today' }], metrics: [{ name: 'activeUsers' }], dimensions: [{ name: 'userAgeBracket' }] }) }),
+      gaFetch(url, { method: 'POST', body: JSON.stringify({ dateRanges: [{ startDate, endDate: 'today' }], metrics: [{ name: 'activeUsers' }], dimensions: [{ name: 'userGender' }] }) })
+    ]);
+    renderDashboard(convData, audData, ageData, genderData, days);
+  } catch (e) {
+    document.getElementById('data-area').innerHTML = '';
+    showError(e.message);
+  }
+}
+
+function fmtNum(n) { return Math.round(n).toLocaleString(); }
+function fmtPct(n) { return (n * 100).toFixed(1) + '%'; }
+function fmtCurrency(n) { return '$' + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+function renderDashboard(convData, audData, ageData, genderData, days) {
+  const rows = convData.rows || [];
+  let totalConv = 0, totalRev = 0, totalSessions = 0, totalBounce = 0;
+  const dates = [], convSeries = [], sessionSeries = [];
+  rows.forEach(r => {
+    const d = r.dimensionValues[0].value;
+    const conv = parseFloat(r.metricValues[0].value) || 0;
+    const rev = parseFloat(r.metricValues[1].value) || 0;
+    const sess = parseFloat(r.metricValues[2].value) || 0;
+    const bounce = parseFloat(r.metricValues[3].value) || 0;
+    totalConv += conv; totalRev += rev; totalSessions += sess; totalBounce += bounce;
+    dates.push(d.slice(4, 6) + '/' + d.slice(6, 8));
+    convSeries.push(Math.round(conv));
+    sessionSeries.push(Math.round(sess));
+  });
+  const avgBounce = rows.length ? totalBounce / rows.length : 0;
+  const countries = (audData.rows || []).map(r => r.dimensionValues[0].value);
+  const countryUsers = (audData.rows || []).map(r => parseInt(r.metricValues[0].value) || 0);
+  const ageLabels = [], ageVals = [];
+  (ageData.rows || []).sort((a, b) => a.dimensionValues[0].value.localeCompare(b.dimensionValues[0].value))
+    .forEach(r => { ageLabels.push(r.dimensionValues[0].value); ageVals.push(parseInt(r.metricValues[0].value) || 0); });
+  const genderMap = {};
+  (genderData.rows || []).forEach(r => { genderMap[r.dimensionValues[0].value] = parseInt(r.metricValues[0].value) || 0; });
+  const agePalette = ['#185FA5', '#1D9E75', '#E37400', '#993C1D', '#534AB7', '#639922'];
+  const gColors = { male: '#185FA5', female: '#D85A30', unknown: '#888780' };
+  const gTotal = Object.values(genderMap).reduce((a, b) => a + b, 0) || 1;
+
+  document.getElementById('data-area').innerHTML = `
+    <div class="metrics-grid">
+      <div class="metric-card"><div class="metric-label">Conversions</div><div class="metric-value">${fmtNum(totalConv)}</div></div>
+      <div class="metric-card"><div class="metric-label">Revenue</div><div class="metric-value">${fmtCurrency(totalRev)}</div></div>
+      <div class="metric-card"><div class="metric-label">Sessions</div><div class="metric-value">${fmtNum(totalSessions)}</div></div>
+      <div class="metric-card"><div class="metric-label">Avg bounce rate</div><div class="metric-value">${fmtPct(avgBounce)}</div></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header">
+        <div class="chart-title">Conversions & sessions over time</div>
+      </div>
+      <div class="legend-row">
+        <div class="legend-item"><span class="legend-swatch" style="background:#185FA5"></span>Conversions</div>
+        <div class="legend-item"><span style="display:inline-block;width:16px;height:0;border-top:2px dashed #1D9E75;margin-right:4px;vertical-align:middle"></span>Sessions</div>
+      </div>
+      <div style="position:relative;height:240px;"><canvas id="convChart"></canvas></div>
+    </div>
+    <div class="two-col">
+      <div class="chart-card">
+        <div class="chart-title" style="margin-bottom:1rem">Top countries by users</div>
+        <div style="position:relative;height:${Math.max(200, countries.length * 38) + 40}px;"><canvas id="countryChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-title">Age distribution</div>
+        </div>
+        <div class="legend-row">${ageLabels.map((l, i) => `<div class="legend-item"><span class="legend-swatch" style="background:${agePalette[i % agePalette.length]}"></span>${l}</div>`).join('')}</div>
+        <div style="position:relative;height:200px;"><canvas id="ageChart"></canvas></div>
+      </div>
+    </div>
+    <div class="chart-card" style="margin-top:12px;">
+      <div class="chart-title" style="margin-bottom:1rem">Gender breakdown</div>
+      ${Object.entries(genderMap).sort((a,b) => b[1]-a[1]).map(([g, v]) => {
+        const pct = ((v / gTotal) * 100).toFixed(1);
+        const col = gColors[g.toLowerCase()] || '#888';
+        return `<div class="gender-bar-label"><span style="text-transform:capitalize;color:#666">${g}</span><span style="font-weight:600">${pct}% <span style="font-weight:400;color:#888">(${fmtNum(v)})</span></span></div><div class="gender-bar-track"><div class="gender-bar-fill" style="width:${pct}%;background:${col}"></div></div>`;
+      }).join('')}
+    </div>
+  `;
+
+  charts.conv = new Chart(document.getElementById('convChart'), {
+    data: { labels: dates, datasets: [
+      { type: 'bar', label: 'Conversions', data: convSeries, backgroundColor: '#185FA5cc', borderRadius: 3, yAxisID: 'y' },
+      { type: 'line', label: 'Sessions', data: sessionSeries, borderColor: '#1D9E75', borderDash: [5, 3], backgroundColor: 'transparent', pointRadius: 0, yAxisID: 'y2', tension: 0.3 }
+    ]},
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { position: 'left', grid: { color: 'rgba(128,128,128,0.1)' } }, y2: { position: 'right', grid: { display: false } } } }
+  });
+  charts.country = new Chart(document.getElementById('countryChart'), {
+    type: 'bar',
+    data: { labels: countries, datasets: [{ data: countryUsers, backgroundColor: '#185FA5cc', borderRadius: 3 }] },
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { color: 'rgba(128,128,128,0.1)' } } } }
+  });
+  charts.age = new Chart(document.getElementById('ageChart'), {
+    type: 'doughnut',
+    data: { labels: ageLabels, datasets: [{ data: ageVals, backgroundColor: agePalette.slice(0, ageLabels.length), borderWidth: 0 }] },
+    options: { responsive: true, maintainAspectRatio: false, cutout: '62%', plugins: { legend: { display: false } } }
+  });
+}
+
+function showError(msg) { document.getElementById('error-area').innerHTML = `<div class="error-banner">${msg}</div>`; }
+function clearError() { document.getElementById('error-area').innerHTML = ''; }
+</script>
+<script src="https://accounts.google.com/gsi/client" onload="initGsi()" async></script>
+</body>
+</html>
